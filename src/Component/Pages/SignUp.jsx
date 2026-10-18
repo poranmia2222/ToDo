@@ -1,60 +1,143 @@
-import React, { useContext, useState } from 'react';
-import { AuthContext } from '../../Context/AuthContext';
+import { useContext, useState } from "react";
+import { useNavigate } from "react-router";
+import { AuthContext } from "../../Context/AuthContext";
+
+const FRIENDLY_ERRORS = {
+    "auth/email-already-in-use": "An account with that email already exists.",
+    "auth/invalid-email": "That email address doesn't look right.",
+    "auth/weak-password": "Please choose a stronger password.",
+    "auth/too-many-requests": "Too many attempts. Please try again later.",
+    "auth/network-requestfailed": "Network error — check your connection.",
+};
+
+const PASSWORD_RULES =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-+]).{8,}$/;
 
 const SignUp = ({ setLoggedIn }) => {
-
     const { createUser } = useContext(AuthContext);
+    const navigate = useNavigate();
+
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
 
-    const handleSignUp = (e) => {
-        setSuccess(false);
+    const handleSignUp = async (event) => {
+        event.preventDefault();
         setError(null);
-        e.preventDefault();
-        const name = e.target.name.value;
-        const email = e.target.email.value;
-        const password = e.target.password.value;
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()-+]).{8,}$/;
-        if (!passwordRegex.test(password)) {
-            setError('Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.');
+        setSuccess(false);
+
+        const form = event.target;
+        const name = form.name.value.trim();
+        const email = form.email.value.trim();
+        const password = form.password.value;
+
+        if (!PASSWORD_RULES.test(password)) {
+            setError(
+                "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number and a special character.",
+            );
             return;
         }
-        createUser(name, email, password)
-        .then(() => { 
+
+        setLoading(true);
+        try {
+            await createUser(name, email, password);
             setSuccess(true);
-        })
-        .catch((error) => {
-            console.log(error);
-            setError(error.message);
-        });
-        console.log(name, email, password);
-    }
+            // Brief pause so the success message is visible, then head in.
+            setTimeout(() => navigate("/", { replace: true }), 900);
+        } catch (err) {
+            setError(
+                FRIENDLY_ERRORS[err.code] ??
+                    "Couldn't create your account. Please try again.",
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
-        <div className='bg-gray-100 p-6 rounded-xl border shadow-xl w-full max-w-md'>
-            <h1 className='text-3xl font-bold mb-4'>Sign Up for Your Account</h1>
-            <form onSubmit={handleSignUp}>
-                <div className='mb-4'>
-                    <label className='block text-sm font-medium mb-1' htmlFor='email'>Full Name</label>
-                    <input className='w-full border rounded px-3 py-2' name='name' type='text' id='name' placeholder='Enter your full name' />
-                </div>
-                <div className='mb-4'>
-                    <label className='block text-sm font-medium mb-1' htmlFor='email'>Email</label>
-                    <input className='w-full border rounded px-3 py-2' name='email' type='email' id='email' placeholder='Enter your email' />
-                </div>
-                <div className='mb-4'>
-                    <label className='block text-sm font-medium mb-1' htmlFor='password'>Password</label>
-                    <input className='w-full border rounded px-3 py-2' name='password' type='password' id='password' placeholder='Enter your password' />
-                </div>
-                <button onClick={() => setLoggedIn(true)} className='text-blue-700 mb-2 hover:underline'>Already have an account? Sign In</button>
-                <button className='w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-600 transition duration-200' type='submit'>Sign Up</button>
-                {
-                    success && <p className='text-green-500 mt-4'>Account created successfully!</p>
-                }
-                {
-                    error && <p className='text-red-500 mt-4'>{error}</p>
-                }
+        <div className="w-full max-w-md rounded-box border border-base-300 bg-base-100 p-8 shadow-xl">
+            <h1 className="text-2xl font-bold">Create your account</h1>
+            <p className="mt-1 text-sm text-base-content/50">
+                Start planning your work in seconds.
+            </p>
+
+            <form onSubmit={handleSignUp} className="mt-6 space-y-4">
+                <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium">
+                        Full name
+                    </span>
+                    <input
+                        className="input w-full"
+                        name="name"
+                        type="text"
+                        autoComplete="name"
+                        placeholder="Alex Doe"
+                        required
+                    />
+                </label>
+
+                <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium">
+                        Email
+                    </span>
+                    <input
+                        className="input w-full"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        required
+                    />
+                </label>
+
+                <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium">
+                        Password
+                    </span>
+                    <input
+                        className="input w-full"
+                        name="password"
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="At least 8 characters"
+                        required
+                    />
+                    <span className="mt-1.5 block text-xs text-base-content/40">
+                        8+ characters with uppercase, lowercase, a number and a
+                        special character.
+                    </span>
+                </label>
+
+                {error && (
+                    <div role="alert" className="alert alert-error text-sm">
+                        <span>{error}</span>
+                    </div>
+                )}
+                {success && (
+                    <div role="alert" className="alert alert-success text-sm">
+                        <span>Account created — taking you inside…</span>
+                    </div>
+                )}
+
+                <button
+                    className={`btn btn-primary w-full ${loading ? "btn-disabled" : ""}`}
+                    type="submit"
+                    disabled={loading}
+                >
+                    {loading && (
+                        <span className="loading loading-spinner loading-sm" />
+                    )}
+                    Sign Up
+                </button>
             </form>
+
+            <button
+                type="button"
+                onClick={() => setLoggedIn(true)}
+                className="mt-4 block w-full text-center text-sm text-primary hover:underline"
+            >
+                Already have an account? Sign In
+            </button>
         </div>
     );
 };

@@ -1,43 +1,106 @@
-import React, { useContext } from 'react';
-import { AuthContext } from '../../Context/AuthContext';
-import { useLocation, useNavigate } from 'react-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebase/firebase.config';
+import { useState } from "react";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useLocation, useNavigate } from "react-router";
+import { auth } from "../../firebase/firebase.config";
+
+const FRIENDLY_ERRORS = {
+    "auth/invalid-credential": "Incorrect email or password.",
+    "auth/user-not-found": "No account found with that email.",
+    "auth/wrong-password": "Incorrect email or password.",
+    "auth/too-many-requests": "Too many attempts. Please try again later.",
+    "auth/network-requestfailed": "Network error — check your connection.",
+    "auth/invalid-email": "That email address doesn't look right.",
+};
 
 const SignIn = ({ setLoggedIn }) => {
     const navigate = useNavigate();
-    const location = useLocation()
-    const handleLogin = (e) => {
-        e.preventDefault();
-        const email = e.target.email.value;
-        const password = e.target.password.value;
-        signInWithEmailAndPassword(auth, email, password)
-            .then((userCredential) => {
-                const user = userCredential.user;
-                console.log('signed in user:', user);
-                navigate(location.state || '/');
-            })
-            .catch((error) => {
-                const errorCode = error.code;
-                const errorMessage = error.message;
-                console.log(errorCode, errorMessage);
-            })
-    }
+    const location = useLocation();
+
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    const handleLogin = async (event) => {
+        event.preventDefault();
+        setError(null);
+        setLoading(true);
+
+        const email = event.target.email.value;
+        const password = event.target.password.value;
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            navigate(location.state || "/", { replace: true });
+        } catch (err) {
+            setError(
+                FRIENDLY_ERRORS[err.code] ??
+                    "Couldn't sign you in. Please try again.",
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
-        <div className='bg-gray-100 p-6 rounded-xl border shadow-xl'>
-            <h1 className='text-3xl font-bold mb-4'>Sign In to Your Account</h1>
-            <form onSubmit={handleLogin}>
-                <div className='mb-4'>
-                    <label className='block text-sm font-medium mb-1' htmlFor='email'>Email</label>
-                    <input className='w-full border rounded px-3 py-2' name='email' type='email' id='email' placeholder='Enter your email' />
-                </div>
-                <div className='mb-4'>
-                    <label className='block text-sm font-medium mb-1' htmlFor='password'>Password</label>
-                    <input className='w-full border rounded px-3 py-2' name='password' type='password' id='password' placeholder='Enter your password' />
-                </div>
-                <button type='button' onClick={() => setLoggedIn(false)} className='text-blue-700 mb-2 hover:underline'>Don't have an account? Sign Up</button>
-                <button className='w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-600 transition duration-200' type='submit'>Sign In</button>
+        <div className="w-full max-w-md rounded-box border border-base-300 bg-base-100 p-8 shadow-xl">
+            <h1 className="text-2xl font-bold">Welcome back</h1>
+            <p className="mt-1 text-sm text-base-content/50">
+                Sign in to pick up where you left off.
+            </p>
+
+            <form onSubmit={handleLogin} className="mt-6 space-y-4">
+                <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium">
+                        Email
+                    </span>
+                    <input
+                        className="input w-full"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        required
+                    />
+                </label>
+
+                <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium">
+                        Password
+                    </span>
+                    <input
+                        className="input w-full"
+                        name="password"
+                        type="password"
+                        autoComplete="current-password"
+                        placeholder="••••••••"
+                        required
+                    />
+                </label>
+
+                {error && (
+                    <div role="alert" className="alert alert-error text-sm">
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                <button
+                    className={`btn btn-primary w-full ${loading ? "btn-disabled" : ""}`}
+                    type="submit"
+                    disabled={loading}
+                >
+                    {loading && (
+                        <span className="loading loading-spinner loading-sm" />
+                    )}
+                    Sign In
+                </button>
             </form>
+
+            <button
+                type="button"
+                onClick={() => setLoggedIn(false)}
+                className="mt-4 block w-full text-center text-sm text-primary hover:underline"
+            >
+                Don't have an account? Sign Up
+            </button>
         </div>
     );
 };
